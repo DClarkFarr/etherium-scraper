@@ -13,4 +13,15 @@ router.post("/address", (req, res) => {
     return res.json({ saved: true });
 });
 
+router.get("/address", (req, res) => {
+    if (!req.session.address) {
+        return res.status(404).json({ message: "No address saved" });
+    }
+    res.json({ address: req.session.address });
+});
+
+router.get("*", (req, res) => {
+    res.status(404).json({ message: "Not found" });
+});
+
 export default router;
