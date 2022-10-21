@@ -7,7 +7,7 @@ import cors from "cors";
 import sessionFileStore from "session-file-store";
 import session from "express-session";
 
-import webRoutes from "./routes/webRoutes.js";
+// import webRoutes from "./routes/webRoutes.js";
 
 const FileStore = sessionFileStore(session);
 
@@ -27,7 +27,8 @@ app.use(
     })
 );
 
-app.use(webRoutes);
+app.use("/assets", express.static("./web/dist/assets"));
+app.use("*", express.static("./web/dist/"));
 
 app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
