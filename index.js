@@ -7,6 +7,8 @@ import cors from "cors";
 import sessionFileStore from "session-file-store";
 import session from "express-session";
 
+import apiRoutes from "./routes/apiRoutes.js";
+
 // import webRoutes from "./routes/webRoutes.js";
 
 const FileStore = sessionFileStore(session);
@@ -26,6 +28,8 @@ app.use(
         cookie: { secure: false, path: "/", httpOnly: true },
     })
 );
+
+app.use("/api", apiRoutes);
 
 app.use("/assets", express.static("./web/dist/assets"));
 app.use("*", express.static("./web/dist/"));

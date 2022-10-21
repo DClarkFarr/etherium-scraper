@@ -1,12 +1,15 @@
 <script setup>
 import AddressForm from "../components/form/AddressForm.vue";
 import client from "@/utils/client.js";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 const onSubmit = (address) => {
     client
         .post("/address", { address })
-        .then((response) => {
-            console.log(response);
+        .then(() => {
+            router.push("/address");
         })
         .catch((error) => {
             console.log(error);
