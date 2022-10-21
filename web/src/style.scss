@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer components {
+    .input {
+        @apply border border-gray-300 text-gray-500 focus:text-gray-700 rounded-md shadow-sm px-6 py-3 focus:outline-0 focus:border-gray-500 w-full;
+    }
+
+    .btn {
+        @apply disabled:bg-gray-500 text-white rounded-md px-6 py-3 leading-none;
+    }
 }
 
 html,
