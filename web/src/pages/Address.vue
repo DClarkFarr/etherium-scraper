@@ -1,10 +1,11 @@
 <script setup>
 import client from "@/utils/client";
-import { onMounted, ref } from "vue";
+import { onMounted, ref, nextTick } from "vue";
 import { concatAddress } from "@/methods/address";
 import { useRouter } from "vue-router";
 import BasicButton from "../components/button/BasicButton.vue";
 import { useToast } from "vue-toastification";
+import RawTransactionsTable from "../components/table/RawTransactionsTable.vue";
 
 const router = useRouter();
 
@@ -32,9 +33,11 @@ const loadAddress = () => {
 const loadTransactions = () => {
     loadingTransactions.value = true;
     return client
-        .get("/transactions", { address: address.value })
+        .get("/transactions", { params: { address: address.value } })
         .then(({ data }) => {
-            transactions.value = data;
+            transactions.value = data.transactions;
+
+            console.log("set stuff", transactions.value);
 
             transactionsLoaded.value = true;
         })
@@ -47,8 +50,12 @@ const loadTransactions = () => {
         });
 };
 
-onMounted(() => {
-    loadAddress();
+onMounted(async () => {
+    await loadAddress();
+    await nextTick();
+    if (address.value) {
+        await loadTransactions();
+    }
 });
 </script>
 <template>
@@ -64,7 +71,9 @@ onMounted(() => {
         </h1>
 
         <div class="rounded-lg p-10 bg-white">
-            <template v-if="transactionsLoaded"> </template>
+            <template v-if="transactionsLoaded">
+                <RawTransactionsTable :rows="transactions" :address="address" />
+            </template>
             <template v-else>
                 <BasicButton
                     class="bg-gray-700 hover:bg-gray-900"
