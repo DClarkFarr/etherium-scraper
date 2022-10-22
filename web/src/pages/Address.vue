@@ -51,29 +51,126 @@ const selectedAssets = useStorage(
     []
 );
 
-const selectedRecipients = useStorage(
-    `address-${address.value}--selected-recipients`,
-    []
-);
-
-const selectedTransactions = computed(() => {
+const assetTransactions = computed(() => {
     const selectedKeys = selectedAssets.value;
+    if (selectedKeys.length === 0) {
+        return transactions.value;
+    }
+
     let f = transactions.value.filter((t) => selectedKeys.includes(t.asset));
 
-    if (selectedRecipients.value.length) {
-        const recipientAddresses = selectedRecipients.value.map((r) => r.value);
-        console.log("recipientAddresses", recipientAddresses, "in", [...f]);
-        f = f.filter(
-            (t) =>
-                recipientAddresses.includes(t.to) ||
-                recipientAddresses.includes(t.from)
-        );
-    }
     return f;
 });
 
-const selectedTotals = computed(() => {
-    const totals = selectedTransactions.value.reduce((acc, row) => {
+const assetTransactionRecipients = computed(() => {
+    return assetTransactions.value.reduce((acc, row) => {
+        if (!acc[row.to]) {
+            acc[row.to] = 0;
+        }
+
+        acc[row.to]++;
+
+        return acc;
+    }, {});
+});
+
+const assetTransactionSenders = computed(() => {
+    return assetTransactions.value.reduce((acc, row) => {
+        if (!acc[row.from]) {
+            acc[row.from] = 0;
+        }
+
+        acc[row.from]++;
+
+        return acc;
+    }, {});
+});
+
+const assetRecipientOptions = computed(() => {
+    return Object.entries(assetTransactionRecipients.value).map(
+        ([key, val]) => ({
+            label: `${concatAddress(key)} (${val})`,
+            value: key,
+        })
+    );
+});
+
+const assetSenderOptions = computed(() => {
+    return Object.entries(assetTransactionSenders.value).map(([key, val]) => ({
+        label: `${concatAddress(key)} (${val})`,
+        value: key,
+    }));
+});
+
+const includeRecipients = useStorage(
+    `address-${address.value}--include-recipients`,
+    []
+);
+
+const includeSenders = useStorage(
+    `address-${address.value}--include-senders`,
+    []
+);
+
+const excludeRecipients = useStorage(
+    `address-${address.value}--exclude-recipients`,
+    []
+);
+
+const excludeSenders = useStorage(
+    `address-${address.value}--exclude-senders`,
+    []
+);
+
+const allFilteredTransactions = computed(() => {
+    const iRecipeints = includeRecipients.value.map((r) => r.value);
+    const iSenders = includeSenders.value.map((r) => r.value);
+
+    const eRecipeints = excludeRecipients.value.map((r) => r.value);
+    const eSenders = excludeSenders.value.map((r) => r.value);
+
+    return [...assetTransactions.value].filter((t) => {
+        const hasIRecipients = iRecipeints.length > 0;
+        const hasISenders = iSenders.length > 0;
+
+        /**
+         * If no recipients/senders are included we don't filter.
+         * If filters exist, must match one or the other.
+         */
+        let status = true;
+        if (hasIRecipients || hasISenders) {
+            let has = false;
+            if (hasIRecipients) {
+                if (iRecipeints.includes(t.to)) {
+                    has = true;
+                }
+            }
+            if (hasISenders) {
+                if (iSenders.includes(t.from)) {
+                    has = true;
+                }
+            }
+
+            status = has;
+        }
+
+        /**
+         * If excluded recipents/senders are selected, override + exclude row for sure.
+         */
+        if (eRecipeints.includes(t.to)) {
+            status = false;
+        }
+
+        if (eSenders.includes(t.from)) {
+            status = false;
+        }
+
+        return status;
+    });
+});
+
+const allFilteredTotals = computed(() => {
+    const totals = allFilteredTransactions.value.reduce((acc, row) => {
         if (!row.asset) {
             return acc;
         }
@@ -98,35 +195,6 @@ const selectedTotals = computed(() => {
     }, {});
 
     return Object.entries(totals).map(([key, val]) => ({ ...val, asset: key }));
-});
-
-const recipients = computed(() => {
-    return transactions.value.reduce((acc, row) => {
-        if (!acc[row.from]) {
-            acc[row.from] = {
-                sent: 0,
-                received: 0,
-            };
-        }
-        if (!acc[row.to]) {
-            acc[row.to] = {
-                sent: 0,
-                received: 0,
-            };
-        }
-
-        acc[row.to].received++;
-        acc[row.from].sent++;
-
-        return acc;
-    }, {});
-});
-
-const recipientOptions = computed(() => {
-    return Object.entries(recipients.value).map(([key, val]) => ({
-        label: `${concatAddress(key)} Sent ${val.sent}, Rec ${val.received}`,
-        value: key,
-    }));
 });
 
 const loadAddress = () => {
@@ -208,18 +276,55 @@ onMounted(async () => {
                         >
                         </Select>
                     </div>
-                    <div class="mb-4">
-                        <label>Filter by address</label>
-                        <Select
-                            v-model="selectedRecipients"
-                            :multiple="true"
-                            class="select"
-                            placeholder="Recipients"
-                            :options="recipientOptions"
-                        >
-                        </Select>
+
+                    <div class="flex gap-x-4">
+                        <div class="w-1/2 mb-4">
+                            <label>Include Recipient</label>
+                            <Select
+                                v-model="includeRecipients"
+                                :multiple="true"
+                                class="select"
+                                placeholder="Recipients"
+                                :options="assetRecipientOptions"
+                            >
+                            </Select>
+                        </div>
+                        <div class="w-1/2 mb-4">
+                            <label>Include Sender</label>
+                            <Select
+                                v-model="includeSenders"
+                                :multiple="true"
+                                class="select"
+                                placeholder="Senders"
+                                :options="assetSenderOptions"
+                            >
+                            </Select>
+                        </div>
                     </div>
-                    <div></div>
+                    <div class="flex gap-x-4">
+                        <div class="w-1/2 mb-4">
+                            <label>Exclude Recipient</label>
+                            <Select
+                                v-model="excludeRecipients"
+                                :multiple="true"
+                                class="select"
+                                placeholder="Recipients"
+                                :options="assetRecipientOptions"
+                            >
+                            </Select>
+                        </div>
+                        <div class="w-1/2 mb-4">
+                            <label>Exclude Sender</label>
+                            <Select
+                                v-model="excludeSenders"
+                                :multiple="true"
+                                class="select"
+                                placeholder="Senders"
+                                :options="assetSenderOptions"
+                            >
+                            </Select>
+                        </div>
+                    </div>
                 </div>
                 <Panel :title="`All transactions (${transactions.length})`">
                     <RawTransactionsTable
@@ -228,15 +333,18 @@ onMounted(async () => {
                     />
                 </Panel>
                 <Panel
-                    :title="`Selected transactions (${selectedTransactions.length})`"
+                    :title="`Selected transactions (${allFilteredTransactions.length})`"
                     :show="true"
                 >
                     <RawTransactionsTable
-                        :rows="selectedTransactions"
+                        :rows="allFilteredTransactions"
                         :address="address"
                     />
                 </Panel>
-                <Panel :title="`Totals by asset (${selectedTotals.length})`">
+                <Panel
+                    :title="`Totals by asset (${allFilteredTotals.length})`"
+                    :show="true"
+                >
                     <table class="w-full">
                         <thead>
                             <tr>
@@ -248,7 +356,7 @@ onMounted(async () => {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="total in selectedTotals"
+                                v-for="total in allFilteredTotals"
                                 :key="total.asset"
                             >
                                 <td>{{ total.asset }}</td>

@@ -1,6 +1,7 @@
 <script setup>
-import { toCurrency, toDateTime } from "@/methods/format";
 import { computed } from "vue";
+import { toDateTime } from "@/methods/format";
+import { concatAddress } from "@/methods/address";
 
 const props = defineProps({
     address: {
@@ -26,6 +27,7 @@ const computedRows = computed(() => {
     <table class="table w-full">
         <thead>
             <tr>
+                <th class="text-left">Address</th>
                 <th class="text-left">In/Out</th>
                 <th class="text-left">Asset</th>
                 <th class="text-left">Value</th>
@@ -33,7 +35,15 @@ const computedRows = computed(() => {
             </tr>
         </thead>
         <tbody>
-            <tr v-for="r in computedRows" :key="r.hash">
+            <tr v-for="r in computedRows" :key="r.hash" :data-has="r.hash">
+                <td class="leading-none">
+                    <div class="text-red-700">
+                        <small>{{ concatAddress(r.from) }}</small>
+                    </div>
+                    <div class="text-emerald-700">
+                        <small>{{ concatAddress(r.to) }}</small>
+                    </div>
+                </td>
                 <td>
                     <span
                         class="text-red-700"
@@ -49,3 +59,9 @@ const computedRows = computed(() => {
         </tbody>
     </table>
 </template>
+
+<style lang="scss" scoped>
+td {
+    padding: 0.25rem 0;
+}
+</style>
