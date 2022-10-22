@@ -1,11 +1,12 @@
 <script setup>
 import client from "@/utils/client";
-import { onMounted, ref, nextTick } from "vue";
+import { onMounted, ref, nextTick, computed } from "vue";
 import { concatAddress } from "@/methods/address";
 import { useRouter } from "vue-router";
 import BasicButton from "../components/button/BasicButton.vue";
 import { useToast } from "vue-toastification";
 import RawTransactionsTable from "../components/table/RawTransactionsTable.vue";
+import Panel from "../components/controls/Panel.vue";
 
 const router = useRouter();
 
@@ -17,6 +18,39 @@ const loadingAddress = ref(true);
 const transactions = ref([]);
 const loadingTransactions = ref(false);
 const transactionsLoaded = ref(false);
+
+const assets = computed(() =>
+    transactions.value.reduce((acc, row) => {
+        if (!row.asset) {
+            return acc;
+        }
+
+        if (!acc[row.asset]) {
+            acc[row.asset] = 0;
+        }
+        acc[row.asset]++;
+
+        return acc;
+    }, {})
+);
+
+const assetOptions = computed(() => {
+    const arr = Object.keys(assets.value).map((asset) => {
+        return {
+            label: asset + " (" + assets.value[asset] + ")",
+            value: asset,
+        };
+    });
+
+    return arr;
+});
+
+const selectedAssets = ref([]);
+
+const selectedTransactions = computed(() => {
+    const selectedKeys = selectedAssets.value;
+    return transactions.value.filter((t) => selectedKeys.includes(t.asset));
+});
 
 const loadAddress = () => {
     return client
@@ -34,12 +68,14 @@ const loadTransactions = () => {
     loadingTransactions.value = true;
     return client
         .get("/transactions", { params: { address: address.value } })
-        .then(({ data }) => {
+        .then(async ({ data }) => {
             transactions.value = data.transactions;
 
-            console.log("set stuff", transactions.value);
-
             transactionsLoaded.value = true;
+
+            await nextTick();
+
+            selectedAssets.value = Object.keys(assets.value);
         })
         .catch((err) => {
             console.log(err);
@@ -72,7 +108,45 @@ onMounted(async () => {
 
         <div class="rounded-lg p-10 bg-white">
             <template v-if="transactionsLoaded">
-                <RawTransactionsTable :rows="transactions" :address="address" />
+                <div class="filters mb-6">
+                    <div>
+                        <label>
+                            Filter Assets
+
+                            <span
+                                class="text-red-600 pl-2 cursor-pointer hover:underline"
+                                @click="selectedAssets = []"
+                            >
+                                <i class="fa fa-times"></i> Clear All
+                            </span>
+                        </label>
+                        <Select
+                            v-model="selectedAssets"
+                            :multiple="true"
+                            class="select"
+                            placeholder="Filter assets"
+                            :options="assetOptions"
+                        >
+                        </Select>
+                    </div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <Panel :title="`All transactions (${transactions.length})`">
+                    <RawTransactionsTable
+                        :rows="transactions"
+                        :address="address"
+                    />
+                </Panel>
+                <Panel
+                    :title="`Selected transactions (${selectedTransactions.length})`"
+                    :show="true"
+                >
+                    <RawTransactionsTable
+                        :rows="selectedTransactions"
+                        :address="address"
+                    />
+                </Panel>
             </template>
             <template v-else>
                 <BasicButton
@@ -86,3 +160,9 @@ onMounted(async () => {
         </div>
     </div>
 </template>
+
+<style lang="scss" scoped>
+.select {
+    @apply w-full;
+}
+</style>

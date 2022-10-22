@@ -21,6 +21,6 @@
 }
 
 .max-h-screen {
-    overflow-y: auto;
+    /* overflow-y: auto; */
 }
 </style>
