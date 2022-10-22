@@ -51,9 +51,82 @@ const selectedAssets = useStorage(
     []
 );
 
+const selectedRecipients = useStorage(
+    `address-${address.value}--selected-recipients`,
+    []
+);
+
 const selectedTransactions = computed(() => {
     const selectedKeys = selectedAssets.value;
-    return transactions.value.filter((t) => selectedKeys.includes(t.asset));
+    let f = transactions.value.filter((t) => selectedKeys.includes(t.asset));
+
+    if (selectedRecipients.value.length) {
+        const recipientAddresses = selectedRecipients.value.map((r) => r.value);
+        console.log("recipientAddresses", recipientAddresses, "in", [...f]);
+        f = f.filter(
+            (t) =>
+                recipientAddresses.includes(t.to) ||
+                recipientAddresses.includes(t.from)
+        );
+    }
+    return f;
+});
+
+const selectedTotals = computed(() => {
+    const totals = selectedTransactions.value.reduce((acc, row) => {
+        if (!row.asset) {
+            return acc;
+        }
+
+        if (!acc[row.asset]) {
+            acc[row.asset] = {
+                in: 0,
+                out: 0,
+                net: 0,
+            };
+        }
+
+        if (address.value.toLowerCase() === row.from) {
+            acc[row.asset].out += row.value;
+        } else {
+            acc[row.asset].in += row.value;
+        }
+
+        acc[row.asset].net = acc[row.asset].in - acc[row.asset].out;
+
+        return acc;
+    }, {});
+
+    return Object.entries(totals).map(([key, val]) => ({ ...val, asset: key }));
+});
+
+const recipients = computed(() => {
+    return transactions.value.reduce((acc, row) => {
+        if (!acc[row.from]) {
+            acc[row.from] = {
+                sent: 0,
+                received: 0,
+            };
+        }
+        if (!acc[row.to]) {
+            acc[row.to] = {
+                sent: 0,
+                received: 0,
+            };
+        }
+
+        acc[row.to].received++;
+        acc[row.from].sent++;
+
+        return acc;
+    }, {});
+});
+
+const recipientOptions = computed(() => {
+    return Object.entries(recipients.value).map(([key, val]) => ({
+        label: `${concatAddress(key)} Sent ${val.sent}, Rec ${val.received}`,
+        value: key,
+    }));
 });
 
 const loadAddress = () => {
@@ -101,7 +174,7 @@ onMounted(async () => {
 });
 </script>
 <template>
-    <div class="w-[600px] max-w-full">
+    <div class="w-[900px] max-w-full">
         <h1 class="font-bold text-2xl mb-6">
             Address
             <small>
@@ -115,7 +188,7 @@ onMounted(async () => {
         <div class="rounded-lg p-10 bg-white">
             <template v-if="transactionsLoaded">
                 <div class="filters mb-6">
-                    <div>
+                    <div class="mb-4">
                         <label>
                             Filter Assets
 
@@ -135,7 +208,17 @@ onMounted(async () => {
                         >
                         </Select>
                     </div>
-                    <div></div>
+                    <div class="mb-4">
+                        <label>Filter by address</label>
+                        <Select
+                            v-model="selectedRecipients"
+                            :multiple="true"
+                            class="select"
+                            placeholder="Recipients"
+                            :options="recipientOptions"
+                        >
+                        </Select>
+                    </div>
                     <div></div>
                 </div>
                 <Panel :title="`All transactions (${transactions.length})`">
@@ -152,6 +235,40 @@ onMounted(async () => {
                         :rows="selectedTransactions"
                         :address="address"
                     />
+                </Panel>
+                <Panel :title="`Totals by asset (${selectedTotals.length})`">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left">Asset</th>
+                                <th class="text-left">In</th>
+                                <th class="text-left">Out</th>
+                                <th class="text-left">Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="total in selectedTotals"
+                                :key="total.asset"
+                            >
+                                <td>{{ total.asset }}</td>
+                                <td class="text-emerald-700">
+                                    {{ total.in.toFixed(4) }}
+                                </td>
+                                <td class="text-red-700">
+                                    {{ total.out.toFixed(4) }}
+                                </td>
+                                <td
+                                    :class="{
+                                        'text-emerald-700': total.net >= 0,
+                                        'text-red-700': total.net < 0,
+                                    }"
+                                >
+                                    {{ total.net.toFixed(4) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </Panel>
             </template>
             <template v-else>
