@@ -7,6 +7,7 @@ import BasicButton from "../components/button/BasicButton.vue";
 import { useToast } from "vue-toastification";
 import RawTransactionsTable from "../components/table/RawTransactionsTable.vue";
 import Panel from "../components/controls/Panel.vue";
+import { useStorage } from "@vueuse/core";
 
 const router = useRouter();
 
@@ -45,7 +46,10 @@ const assetOptions = computed(() => {
     return arr;
 });
 
-const selectedAssets = ref([]);
+const selectedAssets = useStorage(
+    `address-${address.value}--selected-assets`,
+    []
+);
 
 const selectedTransactions = computed(() => {
     const selectedKeys = selectedAssets.value;
@@ -75,7 +79,9 @@ const loadTransactions = () => {
 
             await nextTick();
 
-            selectedAssets.value = Object.keys(assets.value);
+            if (!selectedAssets.value.length) {
+                selectedAssets.value = Object.keys(assets.value);
+            }
         })
         .catch((err) => {
             console.log(err);
