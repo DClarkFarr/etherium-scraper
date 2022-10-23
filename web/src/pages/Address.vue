@@ -197,6 +197,51 @@ const allFilteredTotals = computed(() => {
     return Object.entries(totals).map(([key, val]) => ({ ...val, asset: key }));
 });
 
+const onDownload = () => {
+    const rows = [];
+    rows.push(["Date", "Hash", "From", "To", "Asset", "Value"]);
+
+    allFilteredTransactions.value.forEach((t) => {
+        rows.push([t.timestamp, t.hash, t.from, t.to, t.asset, t.value]);
+    });
+
+    rows.push(["", "", "", "", "", ""]);
+
+    rows.push(["Asset", "In", "Out", "Net"]);
+
+    allFilteredTotals.value.forEach((t) => {
+        rows.push([t.asset, t.in, t.out, t.net]);
+    });
+
+    download(rows, `${address.value}-transactions.csv`);
+};
+
+const download = function (data, filename) {
+    // Creating a Blob for having a csv file format
+    // and passing the data with type
+    const blob = new Blob([toCsv(data)], { type: "text/csv" });
+
+    // Creating an object for downloading url
+    const url = window.URL.createObjectURL(blob);
+
+    // Creating an anchor(a) tag of HTML
+    const a = document.createElement("a");
+
+    // Passing the blob downloading url
+    a.setAttribute("href", url);
+
+    // Setting the anchor tag attribute for downloading
+    // and passing the download file name
+    a.setAttribute("download", filename);
+
+    // Performing a download with click
+    a.click();
+};
+
+const toCsv = function (data) {
+    return data.map((row) => row.join(",")).join("\n");
+};
+
 const loadAddress = () => {
     return client
         .get("/address")
@@ -345,7 +390,7 @@ onMounted(async () => {
                     :title="`Totals by asset (${allFilteredTotals.length})`"
                     :show="true"
                 >
-                    <table class="w-full">
+                    <table class="w-full mb-4">
                         <thead>
                             <tr>
                                 <th class="text-left">Asset</th>
@@ -377,6 +422,14 @@ onMounted(async () => {
                             </tr>
                         </tbody>
                     </table>
+
+                    <button
+                        class="btn bg-emerald-700 hover:bg-emerald-900"
+                        @click="onDownload"
+                    >
+                        <i class="fa fa-download"></i>
+                        Download CSV
+                    </button>
                 </Panel>
             </template>
             <template v-else>
